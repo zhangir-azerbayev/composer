@@ -3,6 +3,8 @@ import json
 from typing import AsyncGenerator
 from dataclasses import asdict
 
+from typeguard import typechecked
+
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse, Response, StreamingResponse
 import uvicorn
@@ -69,6 +71,7 @@ async def generate(request: Request) -> Response:
     return JSONResponse(ret)
 
 
+@typechecked
 def start_vllm_server(config: ModelServerConfig):
     global engine
 

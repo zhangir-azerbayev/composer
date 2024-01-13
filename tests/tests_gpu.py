@@ -1,9 +1,16 @@
 import pytest
 
 from huggingface_hub import snapshot_download
+from pydantic import BaseModel
 
 from composer.model import ServerType, ModelServerConfig, start_model_server
 import composer.model as model
+
+class FakeModelServerConfig(BaseModel):
+    model_id: str
+    server_type: ServerType = ServerType.VLLM
+    port: int = 8000
+    host: str = "0.0.0.0"
 
 
 @pytest.mark.parametrize("server_type", ServerType)
@@ -21,7 +28,7 @@ def test_server_and_request(server_type):
         port=8000,
     )
     endpoints = start_model_server(server_config)
-    endpoints.wait_for_ready(timeout=120)
+    endpoints.wait_for_health(timeout=120)
 
     response = endpoints.health()
     response.raise_for_status()
