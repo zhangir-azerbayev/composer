@@ -1,0 +1,19 @@
+[tool.poetry]
+name = "composer"
+version = "0.1.0"
+description = ""
+authors = ["zhangir-azerbayev <zazerbayev@gmail.com>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = ">=3.10,<3.11"
+lean-dojo = "1.4.5"
+torch = "2.1.2"
+vllm = "0.2.7"
+pytest = "^7.4.4"
+huggingface-hub = "^0.20.2"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
