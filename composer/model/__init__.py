@@ -5,6 +5,8 @@ import multiprocessing
 import requests
 import time
 
+from typeguard import typechecked
+
 import uvicorn
 from vllm.sampling_params import SamplingParams
 
@@ -12,6 +14,7 @@ from composer.model.vllm import start_vllm_server
 from composer.model.data import ServerType, ModelServerConfig
 
 
+@typechecked
 def start_model_server(config: ModelServerConfig):
     """
     Args:
@@ -74,7 +77,7 @@ class Endpoints:
 
         return response
 
-    def wait_for_ready(self, timeout=60):
+    def wait_for_health(self, timeout=60):
         start_time = time.time()
 
         while time.time() - start_time < timeout:
