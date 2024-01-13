@@ -46,9 +46,7 @@ async def generate(request: Request) -> Response:
     async def stream_results() -> AsyncGenerator[bytes, None]:
         async for request_output in results_generator:
             prompt = request_output.prompt
-            text_outputs = [
-                prompt + output.text for output in request_output.outputs
-            ]
+            text_outputs = [prompt + output.text for output in request_output.outputs]
             ret = {"text": text_outputs}
             yield (json.dumps(ret) + "\0").encode("utf-8")
 
@@ -77,9 +75,10 @@ def start_vllm_server(config: ModelServerConfig):
     engine_args = AsyncEngineArgs(model=config.model_id)
     engine = AsyncLLMEngine.from_engine_args(engine_args)
 
-    uvicorn.run(app,
-                host=config.host,
-                port=config.port,
-                log_level="debug",
-                timeout_keep_alive=TIMEOUT_KEEP_ALIVE,
-                )
+    uvicorn.run(
+        app,
+        host=config.host,
+        port=config.port,
+        log_level="debug",
+        timeout_keep_alive=TIMEOUT_KEEP_ALIVE,
+    )

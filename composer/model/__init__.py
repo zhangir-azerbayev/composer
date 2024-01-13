@@ -11,6 +11,7 @@ from vllm.sampling_params import SamplingParams
 from composer.model.vllm import start_vllm_server
 from composer.model.data import ServerType, ModelServerConfig
 
+
 def start_model_server(config: ModelServerConfig):
     """
     Args:
@@ -20,22 +21,26 @@ def start_model_server(config: ModelServerConfig):
     """
     match config.server_type:
         case ServerType.VLLM:
-            server_process = multiprocessing.Process(target=start_vllm_server, args=(config,))
+            server_process = multiprocessing.Process(
+                target=start_vllm_server, args=(config,)
+            )
             server_process.start()
 
             endpoints = Endpoints(
-                    generate_endpoint=f"http://localhost:{config.port}/generate",
-                    health_endpoint=f"http://localhost:{config.port}/health",
-                    terminate_method=server_process.terminate,
-                    )
+                generate_endpoint=f"http://localhost:{config.port}/generate",
+                health_endpoint=f"http://localhost:{config.port}/health",
+                terminate_method=server_process.terminate,
+            )
 
         case _:
-            raise ValueError(f"Invalid ModelServerConfig.server_type {config.server_type}")
+            raise ValueError(
+                f"Invalid ModelServerConfig.server_type {config.server_type}"
+            )
 
     return endpoints
 
 
-class Endpoints():
+class Endpoints:
     """
     Methods for communicating with an inference server.
 
@@ -44,16 +49,14 @@ class Endpoints():
         process runs independently of `Endpoints` objects, and you are free to
         copy `Endpoints objects`.
 
-    Todo: 
+    Todo:
     - define a standard set of endpoints and a interface for each one.
     - The two most important things to support are vllm and openai.
     """
+
     def __init__(
-            self, 
-            generate_endpoint: str,
-            health_endpoint: str,
-            terminate_method: Callable
-            ):
+        self, generate_endpoint: str, health_endpoint: str, terminate_method: Callable
+    ):
         self.generate_endpoint = generate_endpoint
         self.health_endpoint = health_endpoint
         self.terminate = terminate_method
@@ -77,7 +80,7 @@ class Endpoints():
         while time.time() - start_time < timeout:
             try:
                 response = self.health()
-                if response.status_code==200:
+                if response.status_code == 200:
                     return
             except requests.exceptions.RequestException:
                 pass
@@ -85,7 +88,6 @@ class Endpoints():
             time.sleep(0.5)
 
         raise RuntimeError(f"{self.health_endpoint} not ready in time")
-
 
     def terminate(self):
         self.terminate()
