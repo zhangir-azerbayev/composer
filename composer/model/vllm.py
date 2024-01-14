@@ -1,3 +1,4 @@
+# Based on https://github.com/vllm-project/vllm/blob/main/vllm/entrypoints/api_server.py
 import argparse
 import json
 from typing import AsyncGenerator
