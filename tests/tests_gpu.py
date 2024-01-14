@@ -3,27 +3,20 @@ import pytest
 from huggingface_hub import snapshot_download
 from pydantic import BaseModel
 
-from composer.model import ServerType, ModelServerConfig, start_model_server, GenerateResponse
-import composer.model as model
-
-class FakeModelServerConfig(BaseModel):
-    model_id: str
-    server_type: ServerType = ServerType.VLLM
-    port: int = 8000
-    host: str = "0.0.0.0"
-
+from composer.model import *
 
 @pytest.mark.parametrize("server_type", ServerType)
-def test_server_and_request(server_type):
-    EXAMPLE_MODEL_ID = {
+def test_completion_endpoints(server_type):
+    SERVER_MODEL_ID = {
         ServerType.VLLM: "codellama/CodeLlama-7b-hf",
+        ServerType.OPENAI: None,
     }
 
     if server_type == ServerType.VLLM:
-        snapshot_download(EXAMPLE_MODEL_ID[server_type])
+        snapshot_download(SERVER_MODEL_ID[server_type])
 
     server_config = ModelServerConfig(
-        model_id=EXAMPLE_MODEL_ID[server_type],
+        model_id=SERVER_MODEL_ID[server_type],
         server_type=server_type,
         port=8000,
     )
@@ -36,17 +29,26 @@ def test_server_and_request(server_type):
         response = endpoints.health()
         response.raise_for_status()
 
+        match server_type:
+            case ServerType.VLLM:
+                prompt = "1958 - John McCarthy and Paul Graham invent LISP. Due to high costs caused by"
+                request_model_id = None
+            case ServerType.OPENAI:
+                prompt = "Implement a LISP Interpreter."
+                request_model_id = endpoints.model_ids[0]
+
         response = endpoints.generate(
-            prompt="1958 - John McCarthy and Paul Graham invent LISP. Due to high costs caused by",
+            model_id = request_model_id if request_model_id else None,
+            prompt=prompt,
             n=4,
             echo=True,
             max_new_tokens=24,
             stop=".",
-            temperature=0.3,
+            temperature=0.6,
             top_p=0.95
         )
 
-        print(GenerateResponse(**response))
+        print(f"{server_type}: {response}")
 
         endpoints.terminate()
 

@@ -15,8 +15,7 @@ from vllm.engine.async_llm_engine import AsyncLLMEngine
 from vllm.sampling_params import SamplingParams
 from vllm.utils import random_uuid
 
-from composer.model.data import ModelServerConfig
-from composer.model.server_interface import GenerateRequest, GenerateResponse
+from composer.model.server_interface import ModelServerConfig, GenerateRequest, GenerateResponse
 
 TIMEOUT_KEEP_ALIVE = 5  # seconds.
 app = FastAPI()

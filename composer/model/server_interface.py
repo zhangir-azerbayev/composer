@@ -1,5 +1,22 @@
+from abc import ABC, abstractmethod
 from pydantic import BaseModel
-from typing import Union, Dict, List, Optional
+from typing import *
+from enum import Enum
+import requests
+
+from pydantic import BaseModel
+
+
+class ServerType(Enum):
+    VLLM = "vllm"
+    OPENAI = "openai"
+
+
+class ModelServerConfig(BaseModel):
+    model_id: Optional[str]
+    server_type: ServerType = ServerType.VLLM
+    port: int = 8000
+    host: str = "0.0.0.0"
 
 class GenerateRequest(BaseModel):
     """
@@ -31,6 +48,28 @@ class GenerateResponse(BaseModel):
     request_id: str
     """
     A unique identifier
-    """
+    """ 
 
-    
+class Endpoints(ABC):
+    """
+    Methods for communicating with an inference server.
+
+    Note than an `Endpoints` object simply stores an address to the inference
+        methods for communicating with the inference endpoint. The serve
+        process runs independently of `Endpoints` objects, and you are free to
+        copy `Endpoints objects`.
+    """
+    @abstractmethod
+    def generate(self, **kwargs) -> GenerateResponse:
+        """
+        kwargs have same schema as GenerateRequest
+        """
+        pass
+
+    @abstractmethod
+    def health(self) -> requests.Response:
+        pass
+
+    @abstractmethod
+    def wait_for_health(self, timeout=60):
+        pass

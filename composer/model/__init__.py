@@ -1,18 +1,17 @@
-from typing import Literal, Callable
+from typing import *
 from dataclasses import dataclass
 from enum import Enum
 import multiprocessing
 import requests
 import time
+from openai import OpenAI
 
 from typeguard import typechecked
 
-import uvicorn
 from vllm.sampling_params import SamplingParams
 
 from composer.model.vllm import start_vllm_server
-from composer.model.data import ServerType, ModelServerConfig
-from composer.model.server_interface import GenerateRequest, GenerateResponse
+from composer.model.server_interface import *
 
 
 @typechecked
@@ -30,11 +29,15 @@ def start_model_server(config: ModelServerConfig):
             )
             server_process.start()
 
-            endpoints = Endpoints(
+            endpoints = LocalEndpoints(
                 generate_endpoint=f"http://localhost:{config.port}/generate",
                 health_endpoint=f"http://localhost:{config.port}/health",
                 terminate_method=server_process.terminate,
             )
+
+        case ServerType.OPENAI:
+
+            endpoints = OpenAICompletionEndpoints()
 
         case _:
             raise ValueError(
@@ -44,20 +47,8 @@ def start_model_server(config: ModelServerConfig):
     return endpoints
 
 
-class Endpoints:
-    """
-    Methods for communicating with an inference server.
-
-    Note than an `Endpoints` object simply stores an address to the inference
-        methods for communicating with the inference endpoint. The serve
-        process runs independently of `Endpoints` objects, and you are free to
-        copy `Endpoints objects`.
-
-    Todo:
-    - define a standard set of endpoints and a interface for each one.
-    - The two most important things to support are vllm and openai.
-    """
-
+class LocalEndpoints(Endpoints):
+    @typechecked
     def __init__(
         self, generate_endpoint: str, health_endpoint: str, terminate_method: Callable
     ):
@@ -66,15 +57,12 @@ class Endpoints:
         self.terminate = terminate_method
 
     def generate(self, **kwargs):
-        """
-        kwargs have same schema as GenerateRequest
-        """
         payload = GenerateRequest(**kwargs)
 
         response = requests.post(self.generate_endpoint, json=payload.dict())
         response.raise_for_status()
 
-        return response.json()
+        return GenerateResponse(**response.json())
 
     def health(self):
         response = requests.get(self.health_endpoint)
@@ -98,3 +86,42 @@ class Endpoints:
 
     def terminate(self):
         self.terminate()
+
+
+class OpenAICompletionEndpoints(Endpoints):
+    def __init__(self, *args, **kwargs):
+        self.model_ids = ["gpt-3.5-turbo-instruct"]
+        self.client = OpenAI()
+
+    def generate(self, **kwargs):
+        payload = GenerateRequest(**kwargs).dict()
+
+        payload["model"] = payload["model_id"]
+        payload.pop("model_id")
+
+        payload["max_tokens"] = payload["max_new_tokens"]
+        payload.pop("max_new_tokens")
+
+        if payload["best_of"] is None or payload["best_of"]==1:
+            payload.pop("best_of")
+
+        if payload["model"] not in self.model_ids:
+            raise ValueError(f"Invalid model_id {payload.model_id}. Valid IDs are {self.model_ids}")
+
+
+        response = self.client.completions.create(**payload)
+
+        ret = {"text": [x.text for x in response.choices], "request_id": response.id}
+        return GenerateResponse(**ret)
+
+    def health(self):
+        resp = requests.Response()
+        resp.status_code = 200
+
+        return resp
+
+    def wait_for_health(self, timeout=None):
+        pass
+
+    def terminate(self):
+        pass
