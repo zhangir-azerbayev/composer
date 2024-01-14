@@ -15,6 +15,7 @@ from vllm.sampling_params import SamplingParams
 from vllm.utils import random_uuid
 
 from composer.model.data import ModelServerConfig
+from composer.model.server_interface import GenerateRequest, GenerateResponse
 
 TIMEOUT_KEEP_ALIVE = 5  # seconds.
 app = FastAPI()
@@ -31,29 +32,28 @@ async def health() -> Response:
 async def generate(request: Request) -> Response:
     """Generate completion for the request.
 
-    The request should be a JSON object with the following fields:
-    - prompt: the prompt to use for the generation.
-    - stream: whether to stream the results or not.
-    - other fields: the sampling parameters (See `SamplingParams` for details).
+    The request should be a JSON object with the composer.model.server_interface.GenerateRequest
     """
     request_dict = await request.json()
-    prompt = request_dict.pop("prompt")
-    stream = request_dict.pop("stream", False)
-    sampling_params = SamplingParams(**request_dict)
+    request_obj = GenerateRequest(**request_dict)
+
+    prompt = request_obj.prompt
+
+    if request_obj.model_id:
+        return Response(status_code=400, detail=f"vLLM server does not accept GenerateRequest.model_id")
+    if request_obj.seed:
+        return Response(status_code=400, detail=f"random seed not yet implemented")
+
+    sampling_params = SamplingParams(
+            n=request_obj.n,
+            best_of=request_obj.best_of,
+            temperature=request_obj.n,
+            top_p=request_obj.top_p,
+            stop=request_obj.stop,
+    )
     request_id = random_uuid()
 
     results_generator = engine.generate(prompt, sampling_params, request_id)
-
-    # Streaming case
-    async def stream_results() -> AsyncGenerator[bytes, None]:
-        async for request_output in results_generator:
-            prompt = request_output.prompt
-            text_outputs = [prompt + output.text for output in request_output.outputs]
-            ret = {"text": text_outputs}
-            yield (json.dumps(ret) + "\0").encode("utf-8")
-
-    if stream:
-        return StreamingResponse(stream_results())
 
     # Non-streaming case
     final_output = None
@@ -66,8 +66,11 @@ async def generate(request: Request) -> Response:
 
     assert final_output is not None
     prompt = final_output.prompt
-    text_outputs = [prompt + output.text for output in final_output.outputs]
-    ret = {"text": text_outputs}
+    if request_obj.echo:
+        text_outputs = [prompt + output.text for output in final_output.outputs]
+    else:
+        text_outputs = [output.text for output in final_output.outputs]
+    ret = GenerateResponse(text=text_outputs, request_id=request_id).dict()
     return JSONResponse(ret)
 
 

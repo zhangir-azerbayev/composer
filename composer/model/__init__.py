@@ -12,6 +12,7 @@ from vllm.sampling_params import SamplingParams
 
 from composer.model.vllm import start_vllm_server
 from composer.model.data import ServerType, ModelServerConfig
+from composer.model.server_interface import GenerateRequest, GenerateResponse
 
 
 @typechecked
@@ -64,10 +65,13 @@ class Endpoints:
         self.health_endpoint = health_endpoint
         self.terminate = terminate_method
 
-    def generate(self, prompt, temperature=0.3, top_p=0.95):
-        payload = {"prompt": prompt, "temperature": temperature, "top_p": top_p}
+    def generate(self, **kwargs):
+        """
+        kwargs have same schema as GenerateRequest
+        """
+        payload = GenerateRequest(**kwargs)
 
-        response = requests.post(self.generate_endpoint, json=payload)
+        response = requests.post(self.generate_endpoint, json=payload.dict())
         response.raise_for_status()
 
         return response.json()

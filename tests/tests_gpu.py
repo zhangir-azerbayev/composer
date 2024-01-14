@@ -3,7 +3,7 @@ import pytest
 from huggingface_hub import snapshot_download
 from pydantic import BaseModel
 
-from composer.model import ServerType, ModelServerConfig, start_model_server
+from composer.model import ServerType, ModelServerConfig, start_model_server, GenerateResponse
 import composer.model as model
 
 class FakeModelServerConfig(BaseModel):
@@ -28,16 +28,28 @@ def test_server_and_request(server_type):
         port=8000,
     )
     endpoints = start_model_server(server_config)
-    endpoints.wait_for_health(timeout=120)
 
-    response = endpoints.health()
-    response.raise_for_status()
+    # try-except block shuts down API server if main thread raises exception
+    try:
+        endpoints.wait_for_health(timeout=120)
 
-    response = endpoints.generate(
-        prompt="1958 - John McCarthy and Paul Graham invent LISP. Due to high costs caused by",
-        temperature=0,
-    )
+        response = endpoints.health()
+        response.raise_for_status()
 
-    print(response)
+        response = endpoints.generate(
+            prompt="1958 - John McCarthy and Paul Graham invent LISP. Due to high costs caused by",
+            n=4,
+            echo=True,
+            max_new_tokens=24,
+            stop=".",
+            temperature=0.3,
+            top_p=0.95
+        )
 
-    endpoints.terminate()
+        print(GenerateResponse(**response))
+
+        endpoints.terminate()
+
+    except Exception as e:
+        endpoints.terminate()
+        raise e
